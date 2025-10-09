@@ -38,6 +38,7 @@ You can test the BigFile implementation for the cifar10 dataset in [example/cifa
 * our BigFile dataset implementation
 * a naive dataset implementation that loads each data entry from its own `.npy` file on disk
 * a dataset that is loaded fully into RAM
+
 Running
 ```python
 python example/cifar10_example.py
