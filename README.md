@@ -52,3 +52,6 @@ gives
 | InRAMDataset   | 34.018ms                        |
 ```
 BigFile offers up to 4X speed ups in dataloader during training over the naive approach that reads each entry from its own file. Of course if the dataset fits into RAM we are much faster. BigFile speeds up the dataloader for datasets that don't fit into RAM.
+
+# Credit
+Manny Ko introduced me to the bigfile approach that he used for his [CoshNet](https://github.com/Ujjawal-K-Panchal/coshnet) model and helped me apply these techniques in my own projects.
