@@ -30,7 +30,7 @@ HeaderDesc = namedtuple("HeaderDesc", "num_files offsets labels zipped")
 ImageDesc = namedtuple("ImageDesc", "coeffs label")
 
 
-class BigChunk(torch.utils.data.Dataset):
+class BigFile(torch.utils.data.Dataset):
 
     kHeaderFmt = '>IIII'
     kSizeofHeader = struct.calcsize(kHeaderFmt)
@@ -99,7 +99,7 @@ class BigChunk(torch.utils.data.Dataset):
 
     def __len__(self): return self.numentries
 
-    def __str__(self) -> str: return f"BigChunk({self.filename})"
+    def __str__(self) -> str: return f"BigFile({self.filename})"
 
     def __getitem__(self, index):
         offsets = self.offsets
@@ -223,7 +223,7 @@ def reset_stream(stream: BytesIO):
 def verify1(
     i: int,
     item1,
-    bigfile: BigChunk,
+    bigfile: BigFile,
     xformed: List,
     threshold: Callable
 ) -> bool:
@@ -238,7 +238,7 @@ def verify1(
 
 
 def verify_bigfile(
-    bigfile: BigChunk,
+    bigfile: BigFile,
     dataset: Union[torch.utils.data.Dataset, List],
     xformed: List,
     threshold: noop_threshold

@@ -139,7 +139,6 @@ class TransformedDatasetInMemory(AbstractTransformedDataset):
         self,
         batch_size: int = 32,
     ) -> None:
-        #device = 'cuda' if torch.cuda.is_available() else 'cpu'
         dataset = get_img_dataset(
             self.datasetname,
             train=self.train,
@@ -151,7 +150,6 @@ class TransformedDatasetInMemory(AbstractTransformedDataset):
         desc = f'Precomputing Xformed Dataset with {self.Xform}'
         with tqdm(total=len(dataloader), colour='blue', desc=desc) as pbar:
             for i, (x, y) in enumerate(dataloader):
-                #x = x.to(device)
                 with torch.no_grad():
                     # Get Xform
                     Xformed.append(
@@ -240,8 +238,20 @@ class TransformedDatasetMultiFiles(AbstractTransformedDataset):
         return x, y
 
 
-if __name__ == '__main__':
+class ExampleEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
 
+    def forward(self, x):
+        x = self.conv1(x)
+        return x
+
+
+if __name__ == '__main__':
+    results = {}
+
+    datasetname = 'cifar10'
     dataroot = './data'
     Path(dataroot).mkdir(exist_ok=True)
 
@@ -250,9 +260,7 @@ if __name__ == '__main__':
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    encoder = nn.Sequential(nn.Conv2d(3, 6, 5))
-    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    #encoder.to(device)
+    encoder = ExampleEncoder()
 
     def Xform(x):
         with torch.no_grad():
@@ -268,7 +276,7 @@ if __name__ == '__main__':
     )
     bigFileBuilder.doit(
         dataset=get_img_dataset(
-                    datasetname='toy',
+                    datasetname=datasetname,
                     train=True,
                     dataroot=dataroot,
                     preprocess=preprocess
@@ -276,38 +284,56 @@ if __name__ == '__main__':
         kZip=False
     )
     dataset = bigFileBuilder.bigfile
+
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64)
     tic1 = time.process_time()
-    for i, (x, y) in enumerate(dataset):
+    for x, y in dataloader:
         pass
-    time_spent(tic1, 'loop over bigfile dataset')
+    t = time_spent(tic1, 'loop over bigfile dataloader')
+    results['BigFile'] = t
 
     """
-    Tests Naive Dataset implementation loading each entry from seperate file
+    Tests Naive Dataset reading each entry from its own file
     """
+
     dataset = TransformedDatasetMultiFiles(
-        datasetname='toy',
+        datasetname=datasetname,
         dirout=dataroot,
         Xform=Xform,
         train=True,
         dataroot=dataroot,
         preprocess=preprocess
     )
+
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64)
     tic1 = time.process_time()
-    for i, (x, y) in enumerate(dataset):
+    for x, y in dataloader:
         pass
-    time_spent(tic1, 'loop over naive dataset')
+    t = time_spent(tic1, 'loop over naive dataset')
+    results['NaiveDataset'] = t
 
     """
     Tests Dataset loaded into RAM (this is of course much faster)
     """
-    traindataset = TransformedDatasetInMemory(
-        datasetname='toy',
+    dataset = TransformedDatasetInMemory(
+        datasetname=datasetname,
         Xform=Xform,
         train=True,
         dataroot=dataroot,
         preprocess=preprocess
     )
+
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64)
     tic1 = time.process_time()
-    for i, (x, y) in enumerate(traindataset):
+    for x, y in dataloader:
         pass
-    time_spent(tic1, 'loop over dataset saved fully in RAM')
+    t = time_spent(tic1, 'loop over dataset saved fully in RAM')
+    results['InRAMDataset'] = t
+
+    print(
+        f"| {'Implementation':<20} | {'Time Spent on DataLoader (in ms)':<40} |\n"
+        f"| {'-':-^20} | {'-':-^40} |\n"
+        f"| {'BigFile':<20} | {results['BigFile']:<40.3f} |\n"
+        f"| {'NaiveDataset':<20} | {results['NaiveDataset']:<40.3f} |\n"
+        f"| {'InRAMDataset':<20} | {results['InRAMDataset']:<40.3f} |\n"
+    )

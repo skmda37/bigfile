@@ -12,14 +12,14 @@ from typing import Callable, List, Union, Tuple
 
 import torch
 
-from bigfile.bigfile import BigChunk, noop_threshold, reset_stream
+from bigfile.bigfile import BigFile, noop_threshold, reset_stream
 from bigfile.bigfile import verify_bigfile
 
 
 class BigFileBuilder:
     """Builder to apply transform (e.g. CLIP encoder) to each
         element of dataset and write to an idexable gzip file
-        which is managed by BigChunk
+        which is managed by BigFile
     """
 
     def __init__(
@@ -36,10 +36,10 @@ class BigFileBuilder:
     def filename(self):
         return self._filename
 
-    def start(self, dataset) -> Tuple[BigChunk, List]:
+    def start(self, dataset) -> Tuple[BigFile, List]:
         self.num_entries = len(dataset)
         self.now = time.time()
-        self.bigfile = BigChunk(
+        self.bigfile = BigFile(
             filename=self.filename,
             mode='wb',
             kPickle=self.kPickle
@@ -134,7 +134,7 @@ def writeBigFile(
 
 
 def writeXformed(
-    bigfile: BigChunk,
+    bigfile: BigFile,
     size_sum: int,  # track # of bytes written
     dataset: torch.utils.data.Dataset,
     xformed: np.array,
