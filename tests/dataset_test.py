@@ -11,65 +11,18 @@ import subprocess
 from tqdm import tqdm
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 import torchvision
 import torchvision.transforms as tf
 from torchvision.datasets import CIFAR10, CIFAR100, ImageNet
-
-from querylearning.pipeline.bigfile_builder import BigFileBuilder
-from querylearning.utils.cliputils.encoders import ImageEncoderCLIP
-from querylearning.utils.timing import time_spent
-from querylearning.utils.datasetutils.cub2011 import Cub2011
-from querylearning.utils.datasetutils.subset_image_folder import SubsetImageFolder
-from querylearning.utils.datasetutils.rival10 import RIVAL10
+from bigfile.bigfile_builder import BigFileBuilder
+from bigfile.utils.timing import time_spent
 
 
 DATASETNAMES = [
-    'cifar10', 'cifar100', 'rival10',
-    'cub200', 'stanfordcars', 'imagenet100'
+    'cifar10', 'cifar100'
 ]
-
-
-NUM_CLASSES = {
-    'cifar10': 10,
-    'cifar100': 100,
-    'debug': 10,
-    'cub200': 200,
-    'imagenette2': 10,
-    'imagenet100': 100,
-    'imagenet': 1000,
-    'rival10': 10,
-    'stanford_cars': 196
-}
-
-
-def get_split_dataset(
-    datasetname: str,
-    clip_model_id: str,
-    dataroot: str,
-
-) -> Tuple[Dataset, Dataset]:
-    clip_img_encoder = ImageEncoderCLIP(
-        model_id=clip_model_id,
-        device='cuda'
-    )
-    preprocess = clip_img_encoder.preprocess
-
-    traindata = TransformedDatasetInMemory(
-        datasetname=datasetname,
-        Xform=clip_img_encoder,
-        train=True,
-        dataroot=dataroot,
-        preprocess=preprocess
-    )
-    valdata = TransformedDatasetInMemory(
-        datasetname=datasetname,
-        Xform=clip_img_encoder,
-        train=False,
-        dataroot=dataroot,
-        preprocess=preprocess
-    )
-    return traindata, valdata
 
 
 def get_dataloaders(
@@ -115,50 +68,6 @@ def get_img_dataset(
             train=train,
             download=True,
             transform=preprocess
-        )
-    elif datasetname == 'rival10':
-        if not (Path(dataroot) / 'RIVAL10').exists():
-            command_line = "curl -L 'https://app.box.com/index.php?" \
-                           "rm=box_download_shared_file&shared_name=" \
-                           "iflviwl5rbdgtur1rru3t8f7v2vp0gww&file_id=" \
-                           f"f_944375052992' -o rival10.zip"
-            subprocess.run(shlex.split(command_line))
-            command_line = f"unzip -d {dataroot} rival10.zip"
-            subprocess.run(shlex.split(command_line))
-            command_line = f"rm rival10.zip"
-            subprocess.run(shlex.split(command_line))
-        imagenet_root = os.path.join(dataroot, 'imagenet')
-        if not Path(imagenet_root).exists():
-            raise FileNotFoundError(
-                f'Imagenet root {imagenet_root} does not exist'
-            )
-        return RIVAL10(
-            root_data=dataroot,
-            imagenet_root=imagenet_root,
-            transform=preprocess
-        )
-    elif datasetname == 'cub200':
-        # Potential issue downl. cub200 due to change in GDrives API
-        return Cub2011(
-            root=dataroot,
-            train=train,
-            download=True,
-            transform=preprocess
-        )
-    elif datasetname == 'stanfordcars':
-        return torchvision.datasets.StanfordCars(
-            root=dataroot,
-            download=True,
-            split='train' if train else 'test',
-            transform=preprocess
-        )
-    elif datasetname == 'imagenet100':
-        classes_file = Path('utils') / 'datasetutils' \
-                       / 'imagenet100_classes.txt'
-        return SubsetImageFolder(
-            root=Path(dataroot) / 'imagenet' / ('train' if train else 'val'),
-            transform=preprocess,
-            classes_file=classes_file
         )
     else:
         raise NotImplementedError(
@@ -230,7 +139,7 @@ class TransformedDatasetInMemory(AbstractTransformedDataset):
         self,
         batch_size: int = 32,
     ) -> None:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        #device = 'cuda' if torch.cuda.is_available() else 'cpu'
         dataset = get_img_dataset(
             self.datasetname,
             train=self.train,
@@ -242,7 +151,7 @@ class TransformedDatasetInMemory(AbstractTransformedDataset):
         desc = f'Precomputing Xformed Dataset with {self.Xform}'
         with tqdm(total=len(dataloader), colour='blue', desc=desc) as pbar:
             for i, (x, y) in enumerate(dataloader):
-                x = x.to(device)
+                #x = x.to(device)
                 with torch.no_grad():
                     # Get Xform
                     Xformed.append(
@@ -331,20 +240,54 @@ class TransformedDatasetMultiFiles(AbstractTransformedDataset):
         return x, y
 
 
-def identityXform(x): return x
+if __name__ == '__main__':
 
-
-if False:
-    dirout = './data/xformed'
     dataroot = './data'
-    preprocess = tf.ToTensor()
+    Path(dataroot).mkdir(exist_ok=True)
+
+    preprocess = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    encoder = nn.Sequential(nn.Conv2d(3, 6, 5))
+    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #encoder.to(device)
+
+    def Xform(x):
+        with torch.no_grad():
+            return encoder(x)
+
     """
-    Naive Dataset implementation loading each entry from seperate file
+    Test looping over dataset implementation with bigfile
+    """
+    bigFileBuilder = BigFileBuilder(
+        filename='data/testBigFile.dat',
+        xform=Xform,
+        kPickle=False
+    )
+    bigFileBuilder.doit(
+        dataset=get_img_dataset(
+                    datasetname='toy',
+                    train=True,
+                    dataroot=dataroot,
+                    preprocess=preprocess
+                ),
+        kZip=False
+    )
+    dataset = bigFileBuilder.bigfile
+    tic1 = time.process_time()
+    for i, (x, y) in enumerate(dataset):
+        pass
+    time_spent(tic1, 'loop over bigfile dataset')
+
+    """
+    Tests Naive Dataset implementation loading each entry from seperate file
     """
     dataset = TransformedDatasetMultiFiles(
         datasetname='toy',
-        dirout=dirout,
-        Xform=identityXform,
+        dirout=dataroot,
+        Xform=Xform,
         train=True,
         dataroot=dataroot,
         preprocess=preprocess
@@ -355,34 +298,11 @@ if False:
     time_spent(tic1, 'loop over naive dataset')
 
     """
-    bigfile implementation loading each entry from single binary bigfile
-    """
-    bigFileBuilder = BigFileBuilder(
-        filename='testBigFile.dat',
-        xform=identityXform,
-        kPickle=False
-    )
-    bigFileBuilder.doit(
-        dataset=get_img_dataset(
-                    datasetname='toy',
-                    train=True,
-                    dataroot=dataroot,
-                    preprocess=preprocess
-                ),
-        kZip=False
-    )
-    dataset = bigFileBuilder.bigfile
-    tic1 = time.process_time()
-    for i, (x, y) in enumerate(dataset):
-        pass
-    time_spent(tic1, 'loop over bigfile dataset')
-
-    """
-    Tests TransformedDatasetInMemory
+    Tests Dataset loaded into RAM (this is of course much faster)
     """
     traindataset = TransformedDatasetInMemory(
         datasetname='toy',
-        Xform=identityXform,
+        Xform=Xform,
         train=True,
         dataroot=dataroot,
         preprocess=preprocess
@@ -391,69 +311,3 @@ if False:
     for i, (x, y) in enumerate(traindataset):
         pass
     time_spent(tic1, 'loop over dataset saved fully in RAM')
-
-    valdataset = TransformedDatasetInMemory(
-        datasetname='toy',
-        Xform=identityXform,
-        train=False,
-        dataroot=dataroot,
-        preprocess=preprocess
-    )
-
-    trainloader, valloader = get_dataloaders(
-        batch_size=32,
-        num_workers=4,
-        traindata=traindataset,
-        valdata=valdataset
-    )
-
-    x, y = next(iter(trainloader))
-    print(f'x.shape {x.shape}')
-    print(f'y.shape {y.shape}')
-
-    for name in ['cifar10']:
-        get_img_dataset(
-            datasetname=name,
-            train=True,
-            dataroot=dataroot,
-            preprocess=preprocess
-        )
-
-if __name__ == '__main__':
-    dirout = './data/xformed'
-    dataroot = './data'
-    clip_model_id = 'ViT-L/14'
-
-    clip_img_encoder = ImageEncoderCLIP(
-        model_id=clip_model_id,
-        device='cuda'
-    )
-    preprocess = clip_img_encoder.preprocess
-
-    def clipXform(x):
-        x = x.to('cuda').unsqueeze(0)
-        with torch.no_grad():
-            out = clip_img_encoder(x, normout=True)[0].cpu().numpy()
-        return out
-
-    bigFileBuilder = BigFileBuilder(
-        filename='data/testBigFile.dat',
-        xform=clipXform,
-        kPickle=False
-    )
-    bigFileBuilder.doit(
-        dataset=get_img_dataset(
-                    datasetname='toy',
-                    train=True,
-                    dataroot=dataroot,
-                    preprocess=preprocess
-                ),
-        kZip=False
-    )
-    dataset = bigFileBuilder.bigfile
-    tic1 = time.process_time()
-    for i, (x, y) in enumerate(dataset):
-        pass
-    time_spent(tic1, 'loop over bigfile dataset')
-
-

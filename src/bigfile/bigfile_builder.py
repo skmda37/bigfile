@@ -12,8 +12,8 @@ from typing import Callable, List, Union, Tuple
 
 import torch
 
-from bigfile.pipeline.bigfile import BigChunk, noop_threshold, reset_stream
-from bigfile.pipeline.bigfile import verify_bigfile
+from bigfile.bigfile import BigChunk, noop_threshold, reset_stream
+from bigfile.bigfile import verify_bigfile
 
 
 class BigFileBuilder:
@@ -36,7 +36,7 @@ class BigFileBuilder:
     def filename(self):
         return self._filename
 
-    def start(self, dataset) -> Tuple[BigChunk, Callable]:
+    def start(self, dataset) -> Tuple[BigChunk, List]:
         self.num_entries = len(dataset)
         self.now = time.time()
         self.bigfile = BigChunk(
@@ -149,7 +149,7 @@ def writeXformed(
     entries = 0  # track # of entries written
 
     for i, entry in enumerate(dataset):
-        image, label = entry
+        _, label = entry
         coeffs = xformed[i]
         coeffs_th = threshold(coeffs)
 

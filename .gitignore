@@ -1,3 +1,4 @@
 data/
 venv/
 sftp-config.json
+**/__pycache__
