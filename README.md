@@ -30,7 +30,7 @@ Python 3.10.x and newer are supported.
     ```
 # Content
 * [src/bigfile](src/bigfile) contains the code for this project
-* [src/bigfile/modelling.bigfile.py](src/bigfile/modelling.bigfile.py) contains implementations of bigfile; read file header, offsets, coefficients, labels
+* [src/bigfile/modelling.bigfile.py](src/bigfile/modelling.bigfile.py) contains implementations of bigfile; implements reading header, offsets, coefficients, and labels from binary file
 * [src/bigfile/modelling.bigfile_builder](src/bigfile/modelling.bigfile_builder.py) contains implementation of module that builds a bigfile following builder pattern; writes transformed data entries and labels to a single binary with merged gzip streams
 
 # Example
