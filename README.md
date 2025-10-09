@@ -24,7 +24,7 @@ Python 3.10.x and newer are supported.
     ```
     pip install -e .
     ```
-1. If you want to use the code for a PyTorch dataloader you need to a install [pytorch version](https://pytorch.org/get-started/previous-versions/)  (2.7.1 or newer) that is compatible with your CUDA driver. For instance, if you have cuda 11.8 then you can install
+1. If you want to use the code for a PyTorch dataloader you need to a install [pytorch version](https://pytorch.org/get-started/previous-versions/) that is compatible with your CUDA driver. For instance, if you have cuda 11.8 then you can install
     ```
     pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu118
     ```
