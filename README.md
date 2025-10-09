@@ -34,3 +34,9 @@ Python 3.10.x and newer are supported.
 * [src/bigfile/modelling.bigfile_builder](src/bigfile/modelling.bigfile_builder.py) contains implementation of module that builds a bigfile following builder pattern; writes transformed data entries and labels to a single binary with merged gzip streams
 
 # Example
+
+| Implementation | Time Spent Looping over Dataset |
+| -------------- | ------------------------------- |
+| BigFile        | NA                              |
+| NaiveDataset   | NA                              |
+| InRAMDataset   | NA                              |
