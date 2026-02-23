@@ -107,6 +107,12 @@ example/
 
 ---
 
+## Credit
+
+Thank you to Manny Ko who introduced BigFile to me when I struggled with dataloader speed training on imagenet.
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
