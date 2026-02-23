@@ -109,7 +109,7 @@ example/
 
 ## Credit
 
-Thank you to Manny Ko who introduced BigFile to me when I struggled with dataloader speed training on imagenet.
+Thank you to Manny Ko who introduced BigFile to me when I struggled with the dataloader speed during imagenet training.
 
 ---
 
