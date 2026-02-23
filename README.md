@@ -1,57 +1,112 @@
-# About
-Many large datasets do not fit into RAM and consist of millions of compressed files which greatly slow down the dataloader when training ML models. This repository contains a general Python utility to transform the dataset from RAM to a single binary file with merged gzip streams. It is fully compatible with `torch.utils.data.Dataset` and is up to 4X faster than an ImageNet dataloader reading from each entry from its own file.
+# BigFile
 
-# Setup
-Python 3.10.x and newer are supported.
+```
+DataLoader Speed Comparison - CIFAR10
+-----------------------------------------------------------------------------------------------------------------
+| Implementation                   | Time Spent on DataLoader | Comment                                           |
+| -------------------------------- | ------------------------ | ------------------------------------------------- |
+| RAM (Memory-Bound)               | 34.018ms                 | Fastest: but not feasible for large datasets      |
+| Multiple Files (Slow Disk-Bound) | 953.250ms                | Slow: open/close one file per sample              |
+| BigFile (Fast Disk-Bound)        | 226.532ms                | Fast: single binary file with merged gzip streams |
+-----------------------------------------------------------------------------------------------------------------
+```
 
-1. Clone the repository via
-    ```
-    git clone https://github.com/skmda37/bigfile.git
-    ```
-1. Navigate to the root of the repo
-    ```
-    cd bifgile
-    ```
-1. Create a virtualenv in the root of the repo via
-    ```
-    python -m venv venv
-    ```
-1. Activate the virtualenv via
-    ```
-    source venv/bin/activate
-    ```
-1. Install dependecies and the project source code as a local package via
-    ```
-    pip install -e .
-    ```
-1. If you want to use the code for a PyTorch dataloader you need to a install [pytorch version](https://pytorch.org/get-started/previous-versions/) that is compatible with your CUDA driver. For instance, if you have cuda 11.8 then you can install
-    ```
-    pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu118
-    ```
-# Content
-* [src/bigfile](src/bigfile) contains the code for this project
-* [src/bigfile/modelling.bigfile.py](src/bigfile/modelling.bigfile.py) contains implementations of bigfile; implements reading header, offsets, coefficients, and labels from binary file
-* [src/bigfile/modelling.bigfile_builder](src/bigfile/modelling.bigfile_builder.py) contains implementation of module that builds a bigfile following builder pattern; writes transformed data entries and labels to a single binary with merged gzip streams
+<p align="center">
+  <a href="https://github.com/skmda37/bigfile"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"/></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
+  <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-compatible-EE4C2C" alt="PyTorch compatible"/></a>
+</p>
 
-# Example
-You can test the BigFile implementation for the cifar10 dataset in [example/cifar10_example.py](example/cifar10_example.py). The code takes the cifar10 dataset and transforms it with a convolution (toy) encoder into latent feature representations. Then we compare how long it takes to loop through the dataloader of the transformed dataset with 
-* our BigFile dataset implementation
-* a naive dataset implementation that loads each data entry from its own `.npy` file on disk
-* a dataset that is loaded fully into RAM
+---
 
-Running
+**BigFile** is a Python utility for transforming large datasets into a single binary file with merged gzip streams — fully compatible with `torch.utils.data.Dataset`. Designed for datasets too large to fit into RAM that consist of millions of compressed files, BigFile offers up to **4× faster** dataloading compared to reading each entry from its own file.
+
+---
+
+## Why BigFile?
+
+Training ML models on large datasets often involves two bottlenecks: datasets that don't fit into RAM, and slow I/O from reading millions of individual compressed files. BigFile solves both by merging all data entries into a **single binary file** with indexed random access, enabling fast reads without loading the full dataset into memory — as a drop-in `torch.utils.data.Dataset` replacement.
+
+---
+
+## Installation
+
+Python 3.10 and newer are supported.
+
+Clone the repository:
+```bash
+git clone https://github.com/skmda37/bigfile.git
+cd bigfile
+```
+
+Create and activate a virtual environment:
+```bash
+uv venv --python 3.10
+source .venv/bin/activate
+```
+
+Install the package:
+```bash
+uv pip install -e .
+```
+
+Finally, install a [PyTorch version](https://pytorch.org/get-started/previous-versions/) compatible with your CUDA driver.
+
+---
+
+## Quick Start
+
 ```python
+import torch
+import torchvision
+import torchvision.transforms as tf
+from bigfile.bigfile_builder import BigFileBuilder
+
+# Define your transform/encoder
+encoder = MyEncoder()
+def Xform(x):
+    with torch.no_grad():
+        return encoder(x)
+
+# Load your image dataset
+preprocess = torchvision.transforms.Compose([
+    tf.ToTensor(),
+    tf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+])
+dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=preprocess)
+
+# Build the BigFile — transforms each entry and writes to a single binary
+builder = BigFileBuilder(filename='data/dataset.dat', xform=Xform, kPickle=False)
+builder.doit(dataset=dataset, kZip=False)
+
+# Use the resulting BigFile as a drop-in PyTorch Dataset
+dataloader = torch.utils.data.DataLoader(builder.bigfile, batch_size=64)
+for x, y in dataloader:
+    ...
+```
+
+For a full walkthrough including benchmarking, see [`example/cifar10_example.py`](example/cifar10_example.py).
+
+```bash
 python example/cifar10_example.py
 ```
-gives
-```
-| Implementation | Time Spent on DataLoader        |
-| -------------- | ------------------------------- |
-| BigFile        | 226.532ms                       |
-| NaiveDataset   | 953.250ms                       |
-| InRAMDataset   | 34.018ms                        |
-```
-BigFile offers up to 4X speed ups in dataloader during training over the naive approach that reads each entry from its own file. Of course if the dataset fits into RAM we are much faster. BigFile speeds up the dataloader for datasets that don't fit into RAM.
 
-# Credit
-Manny Ko introduced me to the bigfile approach that he used for his [CoshNet](https://github.com/Ujjawal-K-Panchal/coshnet) model and helped me apply these techniques in my own projects.
+---
+
+## Repository Structure
+
+```
+src/
+└── bigfile/
+    ├── modelling/
+    │   ├── bigfile.py          # BigFile reader: header, offsets, coefficients, labels
+    │   └── bigfile_builder.py  # BigFile builder: writes transformed data to binary
+example/
+└── cifar10_example.py          # End-to-end benchmark with CIFAR-10
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
